@@ -69,7 +69,8 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/date_selection_layout"
         android:layout_centerHorizontal="true"
-        android:layout_margin="32dp"
+        android:textSize="16sp"
+        android:layout_margin="40dp"
         android:background="@drawable/button_background"
         android:text="Fetch"
         android:textColor="#fff" />
@@ -89,6 +90,6 @@
         android:layout_alignParentBottom="true"
         android:layout_gravity="end|bottom"
         android:layout_margin="16dp"
-        android:src="@drawable/ic_add_circle_white_24dp" />
+        android:src="@drawable/ic_perm_contact_calendar_white_48dp" />
 
 </RelativeLayout>
