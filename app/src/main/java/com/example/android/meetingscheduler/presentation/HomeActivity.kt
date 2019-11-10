@@ -1,13 +1,11 @@
 package com.example.android.meetingscheduler.presentation
 
-
 import android.app.DatePickerDialog
-import android.content.Context
 import android.content.Intent
 import android.icu.text.SimpleDateFormat
 import android.icu.util.Calendar
 import android.os.Bundle
-import android.view.inputmethod.InputMethodManager
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProviders
@@ -17,9 +15,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.android.meetingscheduler.R
 import com.example.android.meetingscheduler.remote.RemoteDataFetchClass
+import com.example.android.meetingscheduler.utils.hideKeyboard
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
 
+internal const val NO_MEETINGS_KEY = "NO_MEETINGS"
 
 class HomeActivity : AppCompatActivity() {
     private val cal = Calendar.getInstance()
@@ -30,7 +30,7 @@ class HomeActivity : AppCompatActivity() {
     companion object {
         fun errorScenario(meetingFlag: Boolean) {
             val intent = Intent()
-            intent.putExtra("NO_MEETINGS", meetingFlag)
+            intent.putExtra(NO_MEETINGS_KEY, meetingFlag)
         }
 
         var recycler_view: RecyclerView? = null
@@ -39,35 +39,36 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        recycler_view = recycler_view_meetings
         RemoteDataFetchClass.date = date_edit_text.hint.toString()
         val process = RemoteDataFetchClass()
         process.execute()
-        recycler_view = recycler_view_meetings
 
-        recycler_view_meetings?.layoutManager = LinearLayoutManager(applicationContext)
-        recycler_view_meetings.itemAnimator = DefaultItemAnimator()
+        recycler_view_meetings.apply {
+            this.visibility = View.VISIBLE
+            this?.layoutManager = LinearLayoutManager(applicationContext)
+            this.itemAnimator = DefaultItemAnimator()
+            this.addItemDecoration(DividerItemDecoration(this@HomeActivity, LinearLayoutManager.VERTICAL))
+        }
 
-        recycler_view_meetings.addItemDecoration(DividerItemDecoration(this, LinearLayoutManager.VERTICAL))
-        date_edit_text.hint = SimpleDateFormat("dd/MM/yyyy").format(System.currentTimeMillis())
+        date_edit_text.hint = SimpleDateFormat(getString(R.string.date_format)).format(System.currentTimeMillis())
 
         if (cal.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
-            Toast.makeText(this, "Oops!! Sunday, no meetings. Enjoy!!", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.sunday_error_message), Toast.LENGTH_LONG).show()
         }
+
         val dateSetListener = DatePickerDialog.OnDateSetListener { _, year, monthOfYear, dayOfMonth ->
             cal.set(Calendar.YEAR, year)
             cal.set(Calendar.MONTH, monthOfYear)
             cal.set(Calendar.DAY_OF_MONTH, dayOfMonth)
 
-            val myFormat = "dd/MM/yyyy" // mention the format you need
-            val sdf = SimpleDateFormat(myFormat, Locale.US)
+            val sdf = SimpleDateFormat(getString(R.string.date_format), Locale.US)
             date_edit_text.hint = sdf.format(cal.time)
-
         }
 
-
         date_edit_text.setOnClickListener {
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(it.windowToken, 0)
+            this.hideKeyboard(it)
             DatePickerDialog(this@HomeActivity, dateSetListener,
                     cal.get(Calendar.YEAR),
                     cal.get(Calendar.MONTH),
@@ -75,12 +76,9 @@ class HomeActivity : AppCompatActivity() {
         }
 
         fetch_meetings.setOnClickListener {
-            if (cal.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
-                Toast.makeText(this, "Oops!! Sunday, no meetings. Enjoy!!", Toast.LENGTH_LONG).show()
-            }
-            val meetingStatus = intent.getBooleanExtra("NO_MEETINGS", true)
+            val meetingStatus = intent.getBooleanExtra(NO_MEETINGS_KEY, true)
             if (!meetingStatus) {
-                date_layout.error = "Oops!! No meetings"
+                date_layout.error = getString(R.string.gerenic_meeting_error)
             }
             RemoteDataFetchClass.date = date_edit_text.hint.toString()
             val getResponse = RemoteDataFetchClass()
@@ -89,38 +87,43 @@ class HomeActivity : AppCompatActivity() {
         }
 
         previous_action.setOnClickListener {
-            DatePickerDialog(this@HomeActivity, dateSetListener,
-                    cal.get(Calendar.YEAR),
-                    cal.get(Calendar.MONTH),
-                    cal.get(Calendar.DAY_OF_MONTH)).show()
+            val c = Calendar.getInstance()
+            val splitDate = date_edit_text.hint.toString().split("/")
+            c.set(Calendar.DATE, splitDate[0].toInt() - 1)
+            val sdf = SimpleDateFormat(getString(R.string.date_format), Locale.US)
+            date_edit_text.hint = sdf.format(c.time)
+            if (c.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+                Toast.makeText(this, getString(R.string.sunday_error_message), Toast.LENGTH_LONG).show()
+                recycler_view_meetings.visibility = View.GONE
+            } else {
+                recycler_view_meetings.visibility = View.VISIBLE
+                recycler_view_meetings.adapter?.notifyDataSetChanged()
+                RemoteDataFetchClass.date = date_edit_text.hint.toString()
+                val getResponse = RemoteDataFetchClass()
+                getResponse.execute()
+            }
         }
 
         next_action.setOnClickListener {
-/*            var dt = Date()
             val c = Calendar.getInstance()
-            c.time = dt
-            c.add(Calendar.DATE, 1)
-            val myFormat = "dd/MM/yyyy" // mention the format you need
-            val sdf = SimpleDateFormat(myFormat, Locale.US)
-            date_edit_text.hint = sdf.format(c.time)*/
-            DatePickerDialog(this@HomeActivity, dateSetListener,
-                    cal.get(Calendar.YEAR),
-                    cal.get(Calendar.MONTH),
-                    cal.get(Calendar.DAY_OF_MONTH)).show()
+            val splitDate = date_edit_text.hint.toString().split("/")
+            c.set(Calendar.DATE, splitDate[0].toInt() + 1)
+            date_edit_text.hint = SimpleDateFormat(getString(R.string.date_format), Locale.US).format(c.time)
+            if (c.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+                Toast.makeText(this, getString(R.string.sunday_error_message), Toast.LENGTH_LONG).show()
+                recycler_view_meetings.visibility = View.GONE
+            } else {
+                recycler_view_meetings.visibility = View.VISIBLE
+                RemoteDataFetchClass.date = date_edit_text.hint.toString()
+                val getResponse = RemoteDataFetchClass()
+                getResponse.execute()
+            }
         }
 
         fab.setOnClickListener {
             startActivity(Intent(this, AddMeetingActivity::class.java))
         }
 
-
     }
-
-
 }
-
-
-
-
-
 
